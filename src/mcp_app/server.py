@@ -120,7 +120,7 @@ async def login(ctx: Context[ServerSession, AppContext]) -> dict[str, str]:
 
 @mcp.tool()
 async def list_courses(ctx: Context[ServerSession, AppContext]) -> dict[str, object]:
-    """Return all enrolled ILIAS courses with title, URL and ref_id."""
+    """Return enrolled ILIAS courses and groups with title, URL and ref_id."""
     app = _app(ctx)
     try:
         courses = app.course_service.list_courses()

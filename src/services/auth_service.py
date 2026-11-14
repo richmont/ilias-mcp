@@ -32,7 +32,14 @@ class AuthService:
             raise IliasAuthError(f"Failed to load login page: {exc}") from exc
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        form = soup.find("form")
+        form = next(
+            (
+                candidate
+                for candidate in soup.find_all("form")
+                if candidate.find("input", attrs={"type": "password"}) is not None
+            ),
+            None,
+        )
         if not form:
             raise IliasAuthError("Login form not found on ILIAS login page.")
 
@@ -46,12 +53,15 @@ class AuthService:
         self._inject_credentials(
             form, payload, self.settings.ilias_user, self.settings.ilias_pass
         )
-        payload["cmd[doStandardAuthentication]"] = "Anmelden"
+        # Older ILIAS forms use a named submit input. Newer forms route
+        # authentication through their action URL instead.
+        if form.find(attrs={"name": "cmd[doStandardAuthentication]"}) is not None:
+            payload["cmd[doStandardAuthentication]"] = "Anmelden"
 
         action = str(form.get("action", "")).strip()
         if not action:
             raise IliasAuthError("Login form action is missing.")
-        action_url = urljoin(self.settings.ilias_base_url, action)
+        action_url = urljoin(resp.url or self.settings.login_page, action)
 
         try:
             login_resp = self.session.post(

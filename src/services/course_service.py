@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from urllib.parse import urljoin, urlparse
+import re
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -58,7 +59,11 @@ class CourseService:
 
     def _course_from_link(self, href: str, text: str) -> Course | None:
         href = href.strip()
-        if "/go/crs/" not in href:
+        parsed = urlparse(href)
+        path_match = re.search(r"/(?:go|goto\.php)/(?:crs|grp)/(\d+)/?$", parsed.path)
+        target = parse_qs(parsed.query).get("target", [""])[0]
+        target_match = re.fullmatch(r"(?:crs|grp)_(\d+)", target)
+        if not path_match and not target_match:
             return None
 
         title = " ".join(text.split()).strip()
@@ -75,5 +80,10 @@ class CourseService:
 
     @staticmethod
     def _extract_ref_id(url: str) -> str:
-        path = urlparse(url).path.rstrip("/")
+        parsed = urlparse(url)
+        target = parse_qs(parsed.query).get("target", [""])[0]
+        target_match = re.fullmatch(r"(?:crs|grp)_(\d+)", target)
+        if target_match:
+            return target_match.group(1)
+        path = parsed.path.rstrip("/")
         return path.split("/")[-1] if path else ""
